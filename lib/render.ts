@@ -3,7 +3,10 @@ import path from "node:path";
 import type { Profile, Project, Skills } from "./library";
 import type { Tailored } from "./tailor";
 
-const TEMPLATE_PATH = path.join(process.cwd(), "templates", "base.tex");
+const TEMPLATES_DIR = path.join(process.cwd(), "templates");
+
+export const PRETTY_TEMPLATE = path.join(TEMPLATES_DIR, "base.tex");
+export const ATS_TEMPLATE = path.join(TEMPLATES_DIR, "ats-plain.tex");
 
 // LLMs love non-ASCII punctuation (non-breaking hyphen, narrow NBSP, smart
 // quotes, em/en dashes). Jake's template has \pdfgentounicode=1 but the source
@@ -19,14 +22,17 @@ function sanitize(s: string): string {
     .replace(/[\u00A0\u202F\u2009]/g, " "); // no-break / narrow / thin spaces
 }
 
-export function renderLatex(args: {
-  profile: Profile;
-  projects: Project[];
-  skills: Skills;
-  tailored: Tailored;
-}): string {
+export function renderLatex(
+  args: {
+    profile: Profile;
+    projects: Project[];
+    skills: Skills;
+    tailored: Tailored;
+  },
+  templatePath: string = PRETTY_TEMPLATE,
+): string {
   const { profile, projects, skills, tailored } = args;
-  let tex = fs.readFileSync(TEMPLATE_PATH, "utf8");
+  let tex = fs.readFileSync(templatePath, "utf8");
 
   // Header fields
   tex = tex

@@ -2,7 +2,7 @@
 // Render a tailored resume from a synthetic tailored-JSON to verify the LaTeX
 // render path end-to-end without calling Claude. Writes /tmp/smoke-resume.tex.
 import { loadProfile, loadProjects, loadSkills } from "../lib/library.ts";
-import { renderLatex } from "../lib/render.ts";
+import { renderLatex, ATS_TEMPLATE } from "../lib/render.ts";
 
 const profile = loadProfile();
 const projects = loadProjects();
@@ -25,7 +25,14 @@ const tailored = {
   rationale: "synthetic test",
 };
 
+const fs = await import("node:fs");
+
 const tex = renderLatex({ profile, projects, skills, tailored });
 const out = "/tmp/smoke-resume.tex";
-(await import("node:fs")).writeFileSync(out, tex, "utf8");
+fs.writeFileSync(out, tex, "utf8");
 console.log(`wrote ${out} (${tex.length} bytes)`);
+
+const texAts = renderLatex({ profile, projects, skills, tailored }, ATS_TEMPLATE);
+const outAts = "/tmp/smoke-resume-ats.tex";
+fs.writeFileSync(outAts, texAts, "utf8");
+console.log(`wrote ${outAts} (${texAts.length} bytes)`);

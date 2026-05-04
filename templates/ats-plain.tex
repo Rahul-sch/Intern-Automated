@@ -1,0 +1,101 @@
+%-------------------------
+% ATS-plain resume template
+% Author : Rahul Bainsla
+% Stripped of tabular layouts, icon fonts, and \href so that ATS parsers
+% extract a clean single-column reading order with bare URLs preserved.
+% Same %% SLOT:* %% placeholders as base.tex so lib/render.ts works unchanged.
+%------------------------
+
+\documentclass[letterpaper,11pt]{article}
+
+\usepackage[empty]{fullpage}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{enumitem}
+\usepackage[english]{babel}
+
+\addtolength{\oddsidemargin}{-0.5in}
+\addtolength{\evensidemargin}{-0.5in}
+\addtolength{\textwidth}{1in}
+\addtolength{\topmargin}{-.5in}
+\addtolength{\textheight}{1.0in}
+
+\pagestyle{empty}
+\raggedbottom
+\raggedright
+\setlength{\parindent}{0pt}
+
+% T1 + lmodern give the PDF a ToUnicode CMap natively, so we skip
+% \input{glyphtounicode} (only available under pdfTeX) and let the font
+% encoding produce ATS-extractable text on its own.
+
+% Plain section heading: bold caps with a horizontal rule below.
+\newcommand{\atssection}[1]{%
+  \vspace{6pt}%
+  {\large\bfseries\MakeUppercase{#1}}\\[-2pt]%
+  \rule{\linewidth}{0.4pt}\\%
+  \vspace{2pt}%
+}
+
+% Subheading replaces \begin{tabular*} with \hfill: still single column,
+% reading order is left-then-right on the line, which most parsers handle.
+\newcommand{\resumeItem}[1]{\item #1}
+\newcommand{\resumeSubheading}[4]{%
+  \item
+  \textbf{#1}\hfill #2\\%
+  \textit{\small #3}\hfill\textit{\small #4}\vspace{2pt}%
+}
+\newcommand{\resumeSubSubheading}[2]{%
+  \item \textit{\small #1}\hfill\textit{\small #2}\vspace{2pt}%
+}
+\newcommand{\resumeProjectHeading}[2]{%
+  \item #1\hfill #2\vspace{2pt}%
+}
+\newcommand{\resumeSubItem}[1]{\resumeItem{#1}}
+
+\newcommand{\resumeSubHeadingListStart}{\begin{itemize}[leftmargin=0.15in, label={}]}
+\newcommand{\resumeSubHeadingListEnd}{\end{itemize}}
+\newcommand{\resumeItemListStart}{\begin{itemize}[leftmargin=0.3in, topsep=0pt]}
+\newcommand{\resumeItemListEnd}{\end{itemize}\vspace{2pt}}
+
+\begin{document}
+
+%----------HEADING----------
+\begin{center}
+    {\Large\bfseries %%NAME%%}\\[2pt]
+    \small %%PHONE%% \quad %%EMAIL%% \quad %%LINKEDIN_URL%% \quad %%GITHUB_URL%%
+%% SLOT:SUMMARY %%
+\end{center}
+
+
+%-----------EDUCATION-----------
+\atssection{Education}
+\resumeSubHeadingListStart
+%% SLOT:EDUCATION %%
+\resumeSubHeadingListEnd
+
+
+%-----------EXPERIENCE-----------
+\atssection{Experience}
+\resumeSubHeadingListStart
+%% SLOT:EXPERIENCE %%
+\resumeSubHeadingListEnd
+
+
+%-----------PROJECTS-----------
+\atssection{Projects}
+\resumeSubHeadingListStart
+%% SLOT:PROJECTS %%
+\resumeSubHeadingListEnd
+
+
+%-----------TECHNICAL SKILLS-----------
+\atssection{Technical Skills}
+\begin{itemize}[leftmargin=0.15in, label={}]
+\small{\item{
+%% SLOT:SKILLS %%
+}}
+\end{itemize}
+
+
+\end{document}
