@@ -60,6 +60,12 @@ export default function RootLayout({
                   >
                     Library
                   </Link>
+                  <Link
+                    href="/settings"
+                    className="text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition"
+                  >
+                    Settings
+                  </Link>
                   <UserButton />
                 </Show>
                 <Show when="signed-out">
