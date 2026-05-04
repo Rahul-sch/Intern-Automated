@@ -7,6 +7,10 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: path.resolve(__dirname),
   },
+  // pdf-parse pulls in pdfjs-dist, which loads its worker via dynamic
+  // import. Bundling that breaks the worker resolution under Turbopack —
+  // mark these packages as external so Node loads them directly.
+  serverExternalPackages: ["pdf-parse", "pdfjs-dist"],
 };
 
 export default nextConfig;
