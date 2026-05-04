@@ -128,7 +128,7 @@ export async function extractFromResume(args: {
     `5. projects: every personal/portfolio/research project. 'name' is the project name, 'stack' is the comma-separated tech (or '' if not given), 'date' is e.g. "Aug. 2024" if listed, 'tags' is 3-7 short keywords (one or two words each, lowercase), 'bullets' are 1-5 verbatim bullets describing what they built.`,
     `6. skills.categories: 3-6 categories like "Languages", "Frameworks", "Infrastructure", "AI/ML", "Tools". 'items' is the comma-separated list under each, deduplicated.`,
     `7. Never invent metrics, links, or dates that aren't in the source. Empty strings are always fine.`,
-    `8. Output LaTeX-safe strings: escape % as \\%, & as \\&, $ as \\$, _ as \\_, # as \\#. Don't add Unicode bullets — let the renderer add them.`,
+    `8. Output PLAIN TEXT only. ASCII punctuation. No LaTeX commands, no \\texttt{}, no backslash escapes, no smart quotes (' "), no em dashes, no Unicode bullets. The renderer escapes everything before LaTeX compilation.`,
   ].join("\n");
 
   let object: z.infer<typeof ExtractedSchema>;

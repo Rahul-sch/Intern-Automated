@@ -97,9 +97,9 @@ function buildPrompt(args: {
     JSON.stringify(skillBlock, null, 2),
     ``,
     `RULES:`,
-    `1. Output LaTeX-safe strings. Keep existing escapes (\\%, \\_, \\&, \\$). Use \\texttt{...} for code-like terms, $\\to$ for arrows.`,
+    `1. Output PLAIN TEXT only. No LaTeX commands, no backslash escapes, no \\texttt{}, no math mode. The renderer escapes everything. ASCII punctuation only — no smart quotes, em dashes, or non-breaking spaces.`,
     `2. Rewritten bullets must remain factually grounded in the original bullets. Do NOT invent new metrics, libraries, or outcomes. You may re-frame vocabulary to echo JD keywords.`,
-    `3. The summary is one line that will render under the header — concise, role-framed, echoes 2-3 JD themes.`,
+    `3. The summary is one line that will render under the header — concise, role-framed, echoes 2-3 JD themes. Plain text, no period at end.`,
     `4. project_ids must be ${pickCount} distinct ids from the library. skill_order must contain every category id from the library exactly once.`,
     `5. For skill_emphasis, include every category; list items JD-relevant-first; may omit obviously-irrelevant items (aim 4-7 items per category).`,
   ].join("\n");
