@@ -1,39 +1,36 @@
-/**
- * Gates protected API surfaces (Next.js 16 proxy, formerly middleware).
- *
- * The cookie is opaque to this layer — iron-session decryption requires
- * the SESSION_SECRET, which we avoid loading into the edge runtime. We just
- * check for cookie presence here; route handlers do full decryption + Redis
- * lookup via `requireSession()`.
- *
- * Protected paths:
- *   - /api/github/*   (except /api/github/connect)
- *   - /api/resume/*
- *   - /api/jd/*
- */
-import { NextResponse, type NextRequest } from "next/server";
+import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import { NextResponse } from "next/server";
 
-const COOKIE_NAME = "internshippy_session";
+const isPublic = createRouteMatcher([
+  "/",
+  "/sign-in(.*)",
+  "/sign-up(.*)",
+  "/api/clerk(.*)",
+]);
 
-export function proxy(req: NextRequest) {
-  const { pathname } = req.nextUrl;
-  if (pathname === "/api/github/connect") return NextResponse.next();
-  if (!req.cookies.get(COOKIE_NAME)) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: {
-          code: "AUTH_MISSING",
-          message: "Not connected to GitHub",
-          hint: "POST /api/github/connect with your PAT first",
+export default clerkMiddleware(async (auth, req) => {
+  if (isPublic(req)) return NextResponse.next();
+  const { userId, redirectToSignIn } = await auth();
+  if (!userId) {
+    // API surfaces get a JSON 401 (matches the existing AppError envelope);
+    // pages bounce to Clerk's hosted sign-in.
+    if (req.nextUrl.pathname.startsWith("/api/")) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: { code: "VALIDATION", message: "Sign in to continue." },
         },
-      },
-      { status: 401 },
-    );
+        { status: 401 },
+      );
+    }
+    return redirectToSignIn();
   }
   return NextResponse.next();
-}
+});
 
 export const config = {
-  matcher: ["/api/github/:path*", "/api/resume/:path*", "/api/jd/:path*"],
+  matcher: [
+    "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
+    "/(api|trpc)(.*)",
+  ],
 };
