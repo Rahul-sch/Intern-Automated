@@ -1,5 +1,10 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { auth, currentUser } from "@clerk/nextjs/server";
 import { db, type JobRow } from "@/lib/db";
+import { ensureUser, isOnboarded } from "@/lib/userdata";
+
+export const dynamic = "force-dynamic";
 
 type JobListRow = Omit<JobRow, "jd_text">;
 
@@ -11,14 +16,25 @@ const STATUS_COLORS: Record<string, string> = {
   archived: "bg-slate-300 text-slate-600 dark:bg-slate-800 dark:text-slate-400",
 };
 
-export default function Dashboard() {
+export default async function Dashboard() {
+  const { userId } = await auth();
+  if (!userId) redirect("/");
+  const user = await currentUser();
+  ensureUser({
+    userId,
+    email: user?.primaryEmailAddress?.emailAddress ?? null,
+    name: [user?.firstName, user?.lastName].filter(Boolean).join(" ") || null,
+  });
+  if (!isOnboarded(userId)) redirect("/onboarding");
+
   const jobs = db()
     .prepare(
       `SELECT id, url_hash, url, company, title, status, rationale, tex_path, pdf_path, created_at, updated_at
        FROM jobs
+       WHERE user_id = ?
        ORDER BY created_at DESC`,
     )
-    .all() as JobListRow[];
+    .all(userId) as JobListRow[];
 
   const byStatus = {
     new: jobs.filter((j) => j.status === "new").length,
@@ -57,7 +73,7 @@ export default function Dashboard() {
 
       {jobs.length === 0 ? (
         <div className="border border-dashed border-slate-300 dark:border-slate-700 rounded p-10 text-center text-sm text-slate-500">
-          No jobs yet. Paste your first YC / a16z posting to get started.
+          No jobs yet. Paste your first job posting to get started.
         </div>
       ) : (
         <ul className="divide-y divide-slate-200 dark:divide-slate-800 border border-slate-200 dark:border-slate-800 rounded">

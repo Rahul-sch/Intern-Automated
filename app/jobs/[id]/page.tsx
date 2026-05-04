@@ -1,18 +1,25 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { auth } from "@clerk/nextjs/server";
 import { db, type JobRow } from "@/lib/db";
-import { loadProjects, loadSkills } from "@/lib/library";
+import type { Skills } from "@/lib/library";
 import type { Tailored } from "@/lib/tailor";
+import { loadUserProjects, loadUserSkills } from "@/lib/userdata";
 import { Editor } from "./Editor";
 import { JobActions } from "./JobActions";
+
+export const dynamic = "force-dynamic";
 
 export default async function JobDetail(props: {
   params: Promise<{ id: string }>;
 }) {
+  const { userId } = await auth();
+  if (!userId) redirect("/");
+
   const { id } = await props.params;
-  const job = db().prepare(`SELECT * FROM jobs WHERE id = ?`).get(id) as
-    | JobRow
-    | undefined;
+  const job = db()
+    .prepare(`SELECT * FROM jobs WHERE id = ? AND user_id = ?`)
+    .get(id, userId) as JobRow | undefined;
   if (!job) notFound();
 
   const latest = db()
@@ -20,9 +27,10 @@ export default async function JobDetail(props: {
       `SELECT id, created_at, model, tailored_json, tailored_overrides_json,
               pdf_path, pdf_ats_path
        FROM generations
-       WHERE job_id = ? ORDER BY created_at DESC LIMIT 1`,
+       WHERE job_id = ? AND user_id = ?
+       ORDER BY created_at DESC LIMIT 1`,
     )
-    .get(id) as
+    .get(id, userId) as
     | {
         id: string;
         created_at: string;
@@ -41,8 +49,10 @@ export default async function JobDetail(props: {
     ? (JSON.parse(latest.tailored_overrides_json) as Tailored)
     : null;
 
-  const projects = latest ? loadProjects() : [];
-  const skills = latest ? loadSkills() : { categories: [] as never[] };
+  const projects = latest ? loadUserProjects(userId) : [];
+  const skills: Skills = latest
+    ? loadUserSkills(userId)
+    : { categories: [] };
 
   return (
     <main className="mx-auto max-w-7xl w-full px-6 py-6 space-y-5">
@@ -108,7 +118,7 @@ export default async function JobDetail(props: {
               original={original}
               override={override}
               projects={projects}
-              skills={skills as ReturnType<typeof loadSkills>}
+              skills={skills}
               hasPdf={!!latest.pdf_path}
               hasAtsPdf={!!latest.pdf_ats_path}
             />
