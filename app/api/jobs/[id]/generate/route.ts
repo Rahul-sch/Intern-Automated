@@ -1,14 +1,13 @@
 /**
  * POST /api/jobs/[id]/generate
- * Tailor → render → compile. Persists a generations row and updates the job
- * with the produced tex/pdf paths and rationale.
+ * Tailor → render both templates → compile both PDFs. Persists a generations
+ * row and updates the job with the (pretty) tex/pdf paths and rationale.
  */
 import { db, newId, type JobRow } from "@/lib/db";
 import { AppError, ok, withErrorEnvelope } from "@/lib/errors";
 import { loadProfile, loadProjects, loadSkills } from "@/lib/library";
 import { TAILOR_MODEL, tailorResume } from "@/lib/tailor";
-import { renderLatex } from "@/lib/render";
-import { compilePdf, writeTex } from "@/lib/compile";
+import { buildBoth } from "@/lib/build";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -37,30 +36,32 @@ export async function POST(
       title: job.title,
     });
 
-    const tex = renderLatex({ profile, projects, skills, tailored });
-    const texPath = await writeTex(job.id, tex);
-
-    let pdfPath: string | null = null;
-    let compileError: string | null = null;
-    try {
-      const compiled = await compilePdf(texPath);
-      pdfPath = compiled.pdfPath;
-    } catch (err) {
-      if (err instanceof AppError) {
-        // Preserve the tex output even if PDF compile fails — useful for debugging.
-        compileError = `${err.message}${err.hint ? ` — ${err.hint}` : ""}`;
-      } else {
-        throw err;
-      }
-    }
+    const built = await buildBoth({
+      jobId: job.id,
+      profile,
+      projects,
+      skills,
+      tailored,
+    });
 
     const genId = newId();
     db()
       .prepare(
-        `INSERT INTO generations (id, job_id, tailored_json, tex_path, pdf_path, model)
-         VALUES (?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO generations
+           (id, job_id, tailored_json, tex_path, pdf_path,
+            tex_ats_path, pdf_ats_path, model)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       )
-      .run(genId, job.id, JSON.stringify(tailored), texPath, pdfPath, TAILOR_MODEL);
+      .run(
+        genId,
+        job.id,
+        JSON.stringify(tailored),
+        built.texPath,
+        built.pdfPath,
+        built.texAtsPath,
+        built.pdfAtsPath,
+        TAILOR_MODEL,
+      );
 
     db()
       .prepare(
@@ -69,14 +70,16 @@ export async function POST(
              rationale = ?, tex_path = ?, pdf_path = ?, updated_at = datetime('now')
          WHERE id = ?`,
       )
-      .run(tailored.rationale, texPath, pdfPath, job.id);
+      .run(tailored.rationale, built.texPath, built.pdfPath, job.id);
 
     return ok({
       id: genId,
       tailored,
-      texPath,
-      pdfPath,
-      compileError,
+      texPath: built.texPath,
+      pdfPath: built.pdfPath,
+      texAtsPath: built.texAtsPath,
+      pdfAtsPath: built.pdfAtsPath,
+      compileError: built.compileError,
     });
   });
 }

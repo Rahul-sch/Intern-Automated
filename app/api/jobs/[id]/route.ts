@@ -24,11 +24,21 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
 
     const gen = db()
       .prepare(
-        `SELECT id, created_at, model, tailored_json FROM generations
+        `SELECT id, created_at, model, tailored_json, tailored_overrides_json,
+                pdf_path, pdf_ats_path
+         FROM generations
          WHERE job_id = ? ORDER BY created_at DESC LIMIT 1`,
       )
       .get(id) as
-      | { id: string; created_at: string; model: string; tailored_json: string }
+      | {
+          id: string;
+          created_at: string;
+          model: string;
+          tailored_json: string;
+          tailored_overrides_json: string | null;
+          pdf_path: string | null;
+          pdf_ats_path: string | null;
+        }
       | undefined;
 
     return ok({
@@ -39,6 +49,11 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
             created_at: gen.created_at,
             model: gen.model,
             tailored: JSON.parse(gen.tailored_json),
+            overrides: gen.tailored_overrides_json
+              ? JSON.parse(gen.tailored_overrides_json)
+              : null,
+            hasPdf: !!gen.pdf_path,
+            hasAtsPdf: !!gen.pdf_ats_path,
           }
         : null,
     });
