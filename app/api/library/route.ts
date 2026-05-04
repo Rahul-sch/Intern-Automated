@@ -1,31 +1,25 @@
 /**
- * GET   /api/library — returns { profile, projects, skills }
+ * GET   /api/library — returns the signed-in user's { profile, projects, skills }
  * PATCH /api/library — updates any subset { profile?, projects?, skills? }
  */
 import { z } from "zod";
+import { requireUser } from "@/lib/auth";
 import { fail, ok, withErrorEnvelope } from "@/lib/errors";
+import { ProfileSchema, ProjectSchema, SkillsSchema } from "@/lib/library";
 import {
-  ProfileSchema,
-  ProjectSchema,
-  SkillsSchema,
-  loadProfile,
-  loadProjects,
-  loadSkills,
-  saveProfile,
-  saveProjects,
-  saveSkills,
-} from "@/lib/library";
+  loadUserLibrary,
+  saveUserProfile,
+  saveUserProjects,
+  saveUserSkills,
+} from "@/lib/userdata";
 
 export const runtime = "nodejs";
 
 export async function GET() {
-  return withErrorEnvelope(async () =>
-    ok({
-      profile: loadProfile(),
-      projects: loadProjects(),
-      skills: loadSkills(),
-    }),
-  );
+  return withErrorEnvelope(async () => {
+    const { userId } = await requireUser();
+    return ok(loadUserLibrary(userId));
+  });
 }
 
 const PatchBody = z
@@ -40,12 +34,13 @@ const PatchBody = z
 
 export async function PATCH(req: Request) {
   return withErrorEnvelope(async () => {
+    const { userId } = await requireUser();
     const raw = await req.json().catch(() => null);
     const parsed = PatchBody.safeParse(raw);
     if (!parsed.success) return fail("VALIDATION", parsed.error.issues[0].message, 400);
-    if (parsed.data.profile) saveProfile(parsed.data.profile);
-    if (parsed.data.projects) saveProjects(parsed.data.projects);
-    if (parsed.data.skills) saveSkills(parsed.data.skills);
+    if (parsed.data.profile) saveUserProfile(userId, parsed.data.profile);
+    if (parsed.data.projects) saveUserProjects(userId, parsed.data.projects);
+    if (parsed.data.skills) saveUserSkills(userId, parsed.data.skills);
     return ok({ saved: true });
   });
 }

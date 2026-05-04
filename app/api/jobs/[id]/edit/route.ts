@@ -1,17 +1,20 @@
 /**
  * PATCH /api/jobs/[id]/edit       — save user-edited Tailored object on the
  *                                    latest generation; recompile both PDFs.
- * POST  /api/jobs/[id]/edit/reset — clear overrides; recompile both PDFs from
- *                                    the original LLM tailored_json.
  *
- * Edits are scoped to a single generation row (and therefore a single job).
- * They never touch data/projects.json or the rest of the library.
+ * Edits are scoped to a single generation row (and therefore a single job)
+ * owned by the signed-in user. They never touch the user's library.
  */
+import { requireUser } from "@/lib/auth";
 import { db, type JobRow } from "@/lib/db";
 import { AppError, ok, withErrorEnvelope, fail } from "@/lib/errors";
-import { loadProfile, loadProjects, loadSkills } from "@/lib/library";
 import { TailoredSchema, type Tailored, validateTailored } from "@/lib/tailor";
 import { buildBoth } from "@/lib/build";
+import {
+  loadUserProfile,
+  loadUserProjects,
+  loadUserSkills,
+} from "@/lib/userdata";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -22,35 +25,35 @@ type LatestGen = {
   tailored_overrides_json: string | null;
 };
 
-function getLatest(jobId: string): LatestGen | undefined {
+function getLatest(jobId: string, userId: string): LatestGen | undefined {
   return db()
     .prepare(
       `SELECT id, tailored_json, tailored_overrides_json
-       FROM generations WHERE job_id = ? ORDER BY created_at DESC LIMIT 1`,
+       FROM generations
+       WHERE job_id = ? AND user_id = ?
+       ORDER BY created_at DESC LIMIT 1`,
     )
-    .get(jobId) as LatestGen | undefined;
+    .get(jobId, userId) as LatestGen | undefined;
 }
 
 async function rebuild(args: {
+  userId: string;
   jobId: string;
   generationId: string;
   tailored: Tailored;
   overridesJson: string | null;
 }) {
-  const profile = loadProfile();
-  const projects = loadProjects();
-  const skills = loadSkills();
+  const profile = loadUserProfile(args.userId);
+  const projects = loadUserProjects(args.userId);
+  const skills = loadUserSkills(args.userId);
+  if (!profile) {
+    throw new AppError("VALIDATION", "Profile missing — finish onboarding first.");
+  }
 
-  // Cross-check the chosen project_ids and skill categories against the
-  // current library so an override can't smuggle in unknown ids.
   validateTailored(args.tailored, projects, skills);
 
-  // Persist overrides BEFORE compile so DB state is consistent even if
-  // tectonic blows up — the next save will retry the compile.
   db()
-    .prepare(
-      `UPDATE generations SET tailored_overrides_json = ? WHERE id = ?`,
-    )
+    .prepare(`UPDATE generations SET tailored_overrides_json = ? WHERE id = ?`)
     .run(args.overridesJson, args.generationId);
 
   const built = await buildBoth({
@@ -79,9 +82,9 @@ async function rebuild(args: {
     .prepare(
       `UPDATE jobs
        SET tex_path = ?, pdf_path = ?, updated_at = datetime('now')
-       WHERE id = ?`,
+       WHERE id = ? AND user_id = ?`,
     )
-    .run(built.texPath, built.pdfPath, args.jobId);
+    .run(built.texPath, built.pdfPath, args.jobId, args.userId);
 
   return built;
 }
@@ -91,13 +94,14 @@ export async function PATCH(
   ctx: { params: Promise<{ id: string }> },
 ) {
   return withErrorEnvelope(async () => {
+    const { userId } = await requireUser();
     const { id } = await ctx.params;
-    const job = db().prepare(`SELECT * FROM jobs WHERE id = ?`).get(id) as
-      | JobRow
-      | undefined;
+    const job = db()
+      .prepare(`SELECT * FROM jobs WHERE id = ? AND user_id = ?`)
+      .get(id, userId) as JobRow | undefined;
     if (!job) throw new AppError("NOT_FOUND", "Job not found", undefined, 404);
 
-    const latest = getLatest(id);
+    const latest = getLatest(id, userId);
     if (!latest) {
       throw new AppError(
         "NOT_FOUND",
@@ -114,6 +118,7 @@ export async function PATCH(
     }
 
     const built = await rebuild({
+      userId,
       jobId: id,
       generationId: latest.id,
       tailored: parsed.data,

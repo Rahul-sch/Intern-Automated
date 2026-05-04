@@ -46,3 +46,6 @@ next-env.d.ts
 /data/*.db-wal
 /data/*.db-shm
 /generated/
+
+# clerk configuration (can include secrets)
+/.clerk/

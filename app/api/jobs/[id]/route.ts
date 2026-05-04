@@ -4,6 +4,7 @@
  * DELETE /api/jobs/[id] — remove job + cascaded generations (files stay on disk)
  */
 import { z } from "zod";
+import { requireUser } from "@/lib/auth";
 import { db, type JobRow, type JobStatus } from "@/lib/db";
 import { AppError, fail, ok, withErrorEnvelope } from "@/lib/errors";
 
@@ -16,10 +17,11 @@ const PatchBody = z.object({
 
 export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   return withErrorEnvelope(async () => {
+    const { userId } = await requireUser();
     const { id } = await ctx.params;
-    const row = db().prepare(`SELECT * FROM jobs WHERE id = ?`).get(id) as
-      | JobRow
-      | undefined;
+    const row = db()
+      .prepare(`SELECT * FROM jobs WHERE id = ? AND user_id = ?`)
+      .get(id, userId) as JobRow | undefined;
     if (!row) throw new AppError("NOT_FOUND", "Job not found", undefined, 404);
 
     const gen = db()
@@ -62,6 +64,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
 
 export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }> }) {
   return withErrorEnvelope(async () => {
+    const { userId } = await requireUser();
     const { id } = await ctx.params;
     const raw = await req.json().catch(() => null);
     const parsed = PatchBody.safeParse(raw);
@@ -69,9 +72,10 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
 
     const res = db()
       .prepare(
-        `UPDATE jobs SET status = ?, updated_at = datetime('now') WHERE id = ?`,
+        `UPDATE jobs SET status = ?, updated_at = datetime('now')
+         WHERE id = ? AND user_id = ?`,
       )
-      .run(parsed.data.status, id);
+      .run(parsed.data.status, id, userId);
     if (res.changes === 0)
       throw new AppError("NOT_FOUND", "Job not found", undefined, 404);
     return ok({ id, status: parsed.data.status });
@@ -83,8 +87,11 @@ export async function DELETE(
   ctx: { params: Promise<{ id: string }> },
 ) {
   return withErrorEnvelope(async () => {
+    const { userId } = await requireUser();
     const { id } = await ctx.params;
-    const res = db().prepare(`DELETE FROM jobs WHERE id = ?`).run(id);
+    const res = db()
+      .prepare(`DELETE FROM jobs WHERE id = ? AND user_id = ?`)
+      .run(id, userId);
     if (res.changes === 0)
       throw new AppError("NOT_FOUND", "Job not found", undefined, 404);
     return ok({ id });

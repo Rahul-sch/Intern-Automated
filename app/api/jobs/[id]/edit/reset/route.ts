@@ -3,11 +3,16 @@
  * Discard the user's overrides on the latest generation and recompile both
  * PDFs from the original LLM `tailored_json`.
  */
+import { requireUser } from "@/lib/auth";
 import { db, type JobRow } from "@/lib/db";
 import { AppError, ok, withErrorEnvelope } from "@/lib/errors";
-import { loadProfile, loadProjects, loadSkills } from "@/lib/library";
 import type { Tailored } from "@/lib/tailor";
 import { buildBoth } from "@/lib/build";
+import {
+  loadUserProfile,
+  loadUserProjects,
+  loadUserSkills,
+} from "@/lib/userdata";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -17,18 +22,20 @@ export async function POST(
   ctx: { params: Promise<{ id: string }> },
 ) {
   return withErrorEnvelope(async () => {
+    const { userId } = await requireUser();
     const { id } = await ctx.params;
-    const job = db().prepare(`SELECT * FROM jobs WHERE id = ?`).get(id) as
-      | JobRow
-      | undefined;
+    const job = db()
+      .prepare(`SELECT * FROM jobs WHERE id = ? AND user_id = ?`)
+      .get(id, userId) as JobRow | undefined;
     if (!job) throw new AppError("NOT_FOUND", "Job not found", undefined, 404);
 
     const latest = db()
       .prepare(
         `SELECT id, tailored_json FROM generations
-         WHERE job_id = ? ORDER BY created_at DESC LIMIT 1`,
+         WHERE job_id = ? AND user_id = ?
+         ORDER BY created_at DESC LIMIT 1`,
       )
-      .get(id) as { id: string; tailored_json: string } | undefined;
+      .get(id, userId) as { id: string; tailored_json: string } | undefined;
     if (!latest) {
       throw new AppError(
         "NOT_FOUND",
@@ -39,9 +46,12 @@ export async function POST(
     }
 
     const original = JSON.parse(latest.tailored_json) as Tailored;
-    const profile = loadProfile();
-    const projects = loadProjects();
-    const skills = loadSkills();
+    const profile = loadUserProfile(userId);
+    const projects = loadUserProjects(userId);
+    const skills = loadUserSkills(userId);
+    if (!profile) {
+      throw new AppError("VALIDATION", "Profile missing — finish onboarding first.");
+    }
 
     db()
       .prepare(`UPDATE generations SET tailored_overrides_json = NULL WHERE id = ?`)
@@ -73,9 +83,9 @@ export async function POST(
       .prepare(
         `UPDATE jobs
          SET tex_path = ?, pdf_path = ?, updated_at = datetime('now')
-         WHERE id = ?`,
+         WHERE id = ? AND user_id = ?`,
       )
-      .run(built.texPath, built.pdfPath, id);
+      .run(built.texPath, built.pdfPath, id, userId);
 
     return ok({
       generationId: latest.id,
