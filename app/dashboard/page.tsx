@@ -2,7 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { db, type JobRow } from "@/lib/db";
-import { ensureUser, isOnboarded } from "@/lib/userdata";
+import { ensureUser, isOnboarded, loadUserProjects } from "@/lib/userdata";
+import { LibraryPanel } from "./LibraryPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -35,6 +36,7 @@ export default async function Dashboard() {
        ORDER BY created_at DESC`,
     )
     .all(userId) as JobListRow[];
+  const projects = loadUserProjects(userId);
 
   const byStatus = {
     new: jobs.filter((j) => j.status === "new").length,
@@ -109,6 +111,8 @@ export default async function Dashboard() {
           ))}
         </ul>
       )}
+
+      <LibraryPanel initialProjects={projects} />
     </main>
   );
 }

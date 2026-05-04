@@ -213,3 +213,42 @@ export function loadUserLibrary(userId: string): {
     skills: loadUserSkills(userId),
   };
 }
+
+/**
+ * Append projects to the user's library, deduping incoming slugs against
+ * existing ones and against each other. Collisions get a numeric suffix
+ * (`repo-2`, `repo-3`, ...). Returns the resulting full list.
+ */
+export function appendUserProjects(
+  userId: string,
+  newProjects: Project[],
+): Project[] {
+  const existing = loadUserProjects(userId);
+  const usedSlugs = new Set(existing.map((p) => p.id));
+  const merged = existing.slice();
+  for (const p of newProjects) {
+    const slug = p.id || "project";
+    let candidate = slug;
+    let i = 2;
+    while (usedSlugs.has(candidate)) {
+      candidate = `${slug}-${i++}`;
+    }
+    usedSlugs.add(candidate);
+    merged.push(ProjectSchema.parse({ ...p, id: candidate }));
+  }
+  saveUserProjects(userId, merged);
+  return merged;
+}
+
+/**
+ * Remove a single project (by slug). Returns the resulting list. No-op when
+ * the slug isn't present.
+ */
+export function removeUserProject(userId: string, slug: string): Project[] {
+  const existing = loadUserProjects(userId);
+  const filtered = existing.filter((p) => p.id !== slug);
+  if (filtered.length !== existing.length) {
+    saveUserProjects(userId, filtered);
+  }
+  return filtered;
+}
