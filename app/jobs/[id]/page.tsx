@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db, type JobRow } from "@/lib/db";
+import { loadProjects, loadSkills } from "@/lib/library";
+import type { Tailored } from "@/lib/tailor";
+import { Editor } from "./Editor";
 import { JobActions } from "./JobActions";
 
 export default async function JobDetail(props: {
@@ -14,17 +17,35 @@ export default async function JobDetail(props: {
 
   const latest = db()
     .prepare(
-      `SELECT id, created_at, model, tailored_json FROM generations
+      `SELECT id, created_at, model, tailored_json, tailored_overrides_json,
+              pdf_path, pdf_ats_path
+       FROM generations
        WHERE job_id = ? ORDER BY created_at DESC LIMIT 1`,
     )
     .get(id) as
-    | { id: string; created_at: string; model: string; tailored_json: string }
+    | {
+        id: string;
+        created_at: string;
+        model: string;
+        tailored_json: string;
+        tailored_overrides_json: string | null;
+        pdf_path: string | null;
+        pdf_ats_path: string | null;
+      }
     | undefined;
 
-  const tailored = latest ? JSON.parse(latest.tailored_json) : null;
+  const original: Tailored | null = latest
+    ? (JSON.parse(latest.tailored_json) as Tailored)
+    : null;
+  const override: Tailored | null = latest?.tailored_overrides_json
+    ? (JSON.parse(latest.tailored_overrides_json) as Tailored)
+    : null;
+
+  const projects = latest ? loadProjects() : [];
+  const skills = latest ? loadSkills() : { categories: [] as never[] };
 
   return (
-    <main className="mx-auto max-w-6xl w-full px-6 py-8 space-y-6">
+    <main className="mx-auto max-w-7xl w-full px-6 py-6 space-y-5">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <Link
@@ -50,63 +71,47 @@ export default async function JobDetail(props: {
         <JobActions id={job.id} initialStatus={job.status} hasPdf={!!job.pdf_path} />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <section className="space-y-2">
-          <h2 className="text-sm font-medium uppercase tracking-wide text-slate-500">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        <section className="lg:col-span-4 space-y-2">
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
             Job description
           </h2>
-          <pre className="whitespace-pre-wrap text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded p-4 font-mono max-h-[75vh] overflow-auto">
+          <pre className="whitespace-pre-wrap text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded p-3 font-mono max-h-[88vh] overflow-auto">
             {job.jd_text}
           </pre>
+          {original?.rationale && (
+            <details className="text-xs">
+              <summary className="cursor-pointer text-slate-500 hover:text-slate-700 dark:hover:text-slate-300">
+                LLM rationale
+              </summary>
+              <p className="mt-2 text-slate-600 dark:text-slate-400 whitespace-pre-wrap">
+                {original.rationale}
+              </p>
+              {latest && (
+                <p className="mt-2 text-[11px] text-slate-400">
+                  {latest.model} · {latest.created_at}
+                </p>
+              )}
+            </details>
+          )}
         </section>
 
-        <section className="space-y-4">
-          <h2 className="text-sm font-medium uppercase tracking-wide text-slate-500">
-            Tailored output
-          </h2>
-
-          {!tailored ? (
-            <div className="border border-dashed border-slate-300 dark:border-slate-700 rounded p-6 text-sm text-slate-500">
+        <section className="lg:col-span-8 min-w-0">
+          {!latest || !original ? (
+            <div className="border border-dashed border-slate-300 dark:border-slate-700 rounded p-8 text-sm text-slate-500 text-center">
               No generation yet. Click <b>Generate</b> above — takes ~15-40s.
             </div>
           ) : (
-            <div className="space-y-4 text-sm">
-              <div>
-                <div className="text-xs text-slate-500 uppercase tracking-wide">Summary</div>
-                <p className="italic mt-1">{tailored.summary}</p>
-              </div>
-              <div>
-                <div className="text-xs text-slate-500 uppercase tracking-wide">
-                  Projects (in order)
-                </div>
-                <ol className="list-decimal list-inside mt-1 space-y-0.5">
-                  {tailored.project_ids.map((id: string) => (
-                    <li key={id}>
-                      <span className="font-medium">{id}</span>
-                    </li>
-                  ))}
-                </ol>
-              </div>
-              <div>
-                <div className="text-xs text-slate-500 uppercase tracking-wide">
-                  Skill order
-                </div>
-                <p className="mt-1 text-slate-700 dark:text-slate-300">
-                  {tailored.skill_order.join(" → ")}
-                </p>
-              </div>
-              <div>
-                <div className="text-xs text-slate-500 uppercase tracking-wide">
-                  Rationale
-                </div>
-                <p className="mt-1 text-slate-700 dark:text-slate-300 whitespace-pre-wrap">
-                  {tailored.rationale}
-                </p>
-              </div>
-              <div className="text-xs text-slate-400">
-                {latest?.model} · {latest?.created_at}
-              </div>
-            </div>
+            <Editor
+              jobId={job.id}
+              generationId={latest.id}
+              original={original}
+              override={override}
+              projects={projects}
+              skills={skills as ReturnType<typeof loadSkills>}
+              hasPdf={!!latest.pdf_path}
+              hasAtsPdf={!!latest.pdf_ats_path}
+            />
           )}
         </section>
       </div>

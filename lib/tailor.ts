@@ -117,7 +117,11 @@ export async function tailorResume(args: {
   }
 }
 
-function validateTailored(t: Tailored, projects: Project[], skills: Skills): Tailored {
+export function validateTailored(
+  t: Tailored,
+  projects: Project[],
+  skills: Skills,
+): Tailored {
   const projectIds = new Set(projects.map((p) => p.id));
   for (const id of t.project_ids) {
     if (!projectIds.has(id)) {
