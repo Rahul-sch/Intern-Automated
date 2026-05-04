@@ -60,7 +60,7 @@ export default function RootLayout({
                   >
                     Library
                   </Link>
-                  <UserButton afterSignOutUrl="/" />
+                  <UserButton />
                 </Show>
                 <Show when="signed-out">
                   <SignInButton mode="modal">

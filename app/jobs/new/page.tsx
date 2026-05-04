@@ -7,7 +7,7 @@ export default function NewJobPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">New job</h1>
         <Link
-          href="/"
+          href="/dashboard"
           className="text-sm text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
         >
           ← Dashboard

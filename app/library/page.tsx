@@ -16,7 +16,7 @@ export default function LibraryPage() {
           </p>
         </div>
         <Link
-          href="/"
+          href="/dashboard"
           className="text-sm text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
         >
           ← Dashboard

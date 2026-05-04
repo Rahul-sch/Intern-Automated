@@ -31,9 +31,9 @@ export default function Dashboard() {
     <main className="mx-auto max-w-5xl w-full px-6 py-10 space-y-8">
       <header className="flex items-start justify-between gap-6">
         <div>
-          <h1 className="text-3xl font-semibold">InternShippy</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
           <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-            Tailored resumes for YC / a16z applications.
+            Your tailored applications.
           </p>
           <div className="flex gap-3 mt-3 text-xs text-slate-500">
             <span>{byStatus.new} new</span>
@@ -47,14 +47,8 @@ export default function Dashboard() {
         </div>
         <div className="flex gap-2">
           <Link
-            href="/library"
-            className="px-3 py-2 text-sm rounded border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800"
-          >
-            Library
-          </Link>
-          <Link
             href="/jobs/new"
-            className="px-3 py-2 text-sm rounded bg-blue-600 text-white hover:bg-blue-500"
+            className="px-3 py-2 text-sm rounded bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:opacity-90 transition"
           >
             + New job
           </Link>
